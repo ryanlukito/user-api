@@ -116,3 +116,32 @@ exports.updatePassword = async (req, res, next) => {
         next(error);
     }
 }
+
+exports.updateProfilePicture = async (req, res, next) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({message: "Picture is required!"});
+
+        }
+
+        const userId = req.user.id;
+        const imageName = req.file.filename;
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            {profilePicture: imageName},
+            {new: true}
+        ).select('-password -refreshToken');
+
+        user.profilePicture = req.file.filename;
+        await user.save();
+
+        res.status(200).json({
+            message: 'Profile picture updated',
+            pictureUrl: `${req.protocol}://${req.get('host')}/uploads/${imageName}`,
+            user
+        });
+    } catch (error) {
+        next(error);
+    }
+};

@@ -1,4 +1,5 @@
 const express = require('express');
+
 const {
     getUsers, 
     createUser, 
@@ -6,9 +7,13 @@ const {
     deleteUser, 
     getProfile, 
     updateProfile,
-    updatePassword} = require('../controllers/userController');
+    updatePassword,
+    updateProfilePicture} = require('../controllers/userController');
+
 const auth = require('../middleware/authMiddleware');
 const authorizeRole = require('../middleware/roleMiddleware');
+const upload = require('../middleware/uploadMiddleware');
+
 const router = express.Router();
 const {body} = require('express-validator');
 
@@ -24,6 +29,7 @@ router.post('/', auth, authorizeRole("admin"), userValidation, createUser);
 router.get('/profile', auth, getProfile);
 router.put('/profile', auth, updateProfile);
 router.put('/profile/password', auth, updatePassword);
+router.put('/profile/picture', auth, upload.single('picture'), updateProfilePicture);
 
 router.put('/:id', auth, authorizeRole("admin"), userValidation, updateUser);
 router.delete('/:id', auth, authorizeRole("admin"), deleteUser)
