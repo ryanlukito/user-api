@@ -1,6 +1,8 @@
 const User = require('../models/Users');
+const OTP = require('../models/OTP');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const sendEmail = require('../utils/sendEmail');
 
 exports.register = async (req, res, next) => {
     try {
@@ -81,3 +83,59 @@ exports.logout = async(req, res) => {
         res.status(500).json({message: error.message});
     }
 }
+
+exports.forgotPassword = async(req, res, next) => {
+    try {
+        const {email} = req.body;
+        const user = await User.findOne({email});
+        if (!user) return res.status(400).json({message: 'Email not found'})
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = Date.now() * 5 * 60 * 1000;
+
+        await OTP.create({email, otp, expiresAt});
+
+        await sendEmail('ryankrishandilukito@mail.ugm.ac.id', 'Your OTP Code', `Your OTP is ${otp}`)
+
+        res.status(200).json({message: 'OTP sent to email'})
+    } catch (error) {
+        next(error);
+    }
+}
+
+exports.verifyOTP = async(req, res, next) => {
+    try {
+        const {email, otp} = req.body;
+
+        const record = await OTP.findOne({email, otp});
+        if (!record) return res.status(400).json({message: "Invalid OTP"});
+
+        if (Date.now() > record.expiresAt) {
+            return res.status(400).json({message: 'OTP has expired'});
+        }
+
+        record.verified = true;
+        await record.save();
+
+        res.json({message: 'OTP verified successfully'});
+    } catch (error) {
+        next(error);
+    }
+}
+
+exports.resetPassword = async(req, res, next) => {
+    try {
+        const {email, newPassword} = req.body;
+
+        const record = await OTP.findOne({email, verified: true});
+        if (!record) return res.status(400).json({message: 'OTP not verified'});
+
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await User.findOneAndUpdate({email}, {password: hashed});
+
+        await OTP.deleteMany({email})
+    } catch (error) {
+        next(error);
+    }
+}
+

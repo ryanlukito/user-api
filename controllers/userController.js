@@ -18,8 +18,31 @@ exports.createUser = async (req, res, next) => {
 
 exports.getUsers = async (req, res, next) => {
     try {
-        const users = await User.find();
-        res.json({message: 'Get all users', data: users});
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || "";
+        const sort = req.query.sort || 'createdAt';
+        const order = req.query.order === 'desc' ? -1 : 1;
+        
+        const filter = {
+            name: {$regex: search, $options: 'i'}
+        };
+
+        const totalData = await User.countDocuments(filter);
+
+        const users = await User.find(filter)
+            .select('-password -refreshToken')
+            .sort({[sort]: order})
+            .skip((page-1) * limit)
+            .limit(limit);
+
+        res.json({
+            page,
+            limit,
+            totalData,
+            totalPages: Math.ceil(totalData/limit),
+            users
+        });
     } catch (error) {
         next(error);
     }
