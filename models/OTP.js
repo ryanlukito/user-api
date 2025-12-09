@@ -16,6 +16,11 @@ const OTPSchema = new mongoose.Schema({
     verified: {
         type: Boolean,
         default: false,
+    },
+    purpose: {
+        type: String,
+        enum: ['VERIFY_EMAIL', 'RESET_PASSWORD'],
+        required: true
     }
 }, {timestamps: true});
 
