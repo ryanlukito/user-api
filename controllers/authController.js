@@ -3,6 +3,7 @@ const OTP = require('../models/OTP');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const sendEmail = require('../utils/sendEmail');
+const {MAX_FAILED_ATTEMPTS, LOCK_TIME, isAccountLocked} = require('../utils/isAccountLocked');
 
 exports.register = async (req, res, next) => {
     try {
@@ -48,9 +49,40 @@ exports.login = async (req, res, next) => {
         if (!user.isVerified) {
             return res.status(403).json({message: "Please verify your email first."})
         }
+
+        if (isAccountLocked(user)) {
+            const minutesLeft = Math.ceil((user.lockUntil - Date.now()) / 60000);
+
+            return res.status(403).json({
+                message: `Account locked. Try again in ${minutesLeft} minutes.`
+            })
+        }
         
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({message: "Wrong Password"})
+        if (!isMatch) {
+            user.failedLoginAttempts += 1;
+
+            if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
+                user.lockUntil = new Date(Date.now() + LOCK_TIME);
+                user.failedLoginAttempts = 0;
+
+                await user.save();
+
+                await sendEmail(
+                    user.email,
+                    'Your Account Has Been Locked',
+                    'Your account has been locked for 15 minutes due to repeated failed login attempts.'
+                )
+
+                return res.status(403).json({
+                    message: 'Too many failed attempts. Account locked for 15 minutes.'
+                })
+            }
+
+            await user.save();
+
+            return res.status(400).json({message: "Wrong Password"})
+        }
 
         const accessToken = jwt.sign(
             {id: user._id, email: user.email, role: user.role},
@@ -65,6 +97,9 @@ exports.login = async (req, res, next) => {
         );
 
         user.refreshToken = refreshToken;
+        user.failedLoginAttempts = 0;
+        user.lockUntil = null;
+        
         await user.save();
 
         res.json({message: 'Login Success', accessToken, refreshToken})
@@ -115,7 +150,7 @@ exports.forgotPassword = async(req, res, next) => {
         if (!user) return res.status(400).json({message: 'Email not found'})
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = Date.now() + 5 * 60 * 1000;
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
         await OTP.create({email, otp, expiresAt, purpose: 'RESET_PASSWORD'});
 
