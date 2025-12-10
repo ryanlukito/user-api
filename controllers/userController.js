@@ -61,10 +61,16 @@ exports.updateUser = async (req, res, next) => {
     }
 };
 
-exports.deleteUser = async (req, res, next) => {
+exports.hardDeleteUser = async (req, res, next) => {
     try {
-        await User.findByIdAndDelete(req.params.id);
-        res.json({message: 'User deleted'});
+        const userId = req.params.id;
+
+        const result = await User.deleteOne({_id: userId});
+        if (result.deletedCount === 0) {
+            return res.status(404).json({message: 'User not found'});
+        }
+        
+        res.status(200).json({message: 'User deleted'});
     } catch (error) {
         next(error);
     }
@@ -72,7 +78,7 @@ exports.deleteUser = async (req, res, next) => {
 
 exports.getProfile = async (req, res, next) => {
     try {
-        const userId = req.user.id
+        const userId = req.user.id;
 
         const user = await User.findById(userId).select("-password -refreshToken");
         if (!user) return res.status(404).json({message: "User not found"});
@@ -168,3 +174,39 @@ exports.updateProfilePicture = async (req, res, next) => {
         next(error);
     }
 };
+
+exports.softDeleteUser = async (req, res, next) => {
+    try {
+        const userId = req.params.id;
+        
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({message: 'User not found'});
+
+        if (user.deletedAt) return res.status(400).json({message: 'User already deleted'});
+
+        user.deletedAt = new Date();
+        await user.save();
+
+        res.json({message: 'User soft deleted'});
+    } catch(error) {
+        next(error);
+    }
+}
+
+exports.restoreUser = async (req, res, next) => {
+    try {
+        const userId = req.params.id;
+
+        const user = await User.findOne({_id: userId}).select('+deletedAt');
+        if (!user) return res.status(404).json({message: 'User not found'});
+
+        if (!user.deletedAt) return res.status(400).json({message: 'User is not deleted'});
+
+        user.deletedAt = null;
+        await user.save();
+
+        res.status(200).json({message: 'User restored successfully'});
+    } catch(error) {
+        next(error);
+    }
+}

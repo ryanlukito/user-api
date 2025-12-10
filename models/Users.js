@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const softDeletePlugin = require('./plugins/softDeletePlugin');
 
 const userSchema = new mongoose.Schema({
     name: {
@@ -42,8 +43,14 @@ const userSchema = new mongoose.Schema({
     lockUntil: {
         type: Date,
         default: null,
+    },
+    deletedAt: {
+        type: Date,
+        default: null,
     }
 
 }, {timestamps: true});
+
+userSchema.plugin(softDeletePlugin);
 
 module.exports = mongoose.model('User', userSchema);

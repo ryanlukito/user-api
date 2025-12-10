@@ -4,11 +4,13 @@ const {
     getUsers, 
     createUser, 
     updateUser, 
-    deleteUser, 
+    hardDeleteUser,
     getProfile, 
     updateProfile,
     updatePassword,
-    updateProfilePicture} = require('../controllers/userController');
+    updateProfilePicture,
+    softDeleteUser,
+    restoreUser} = require('../controllers/userController');
 
 const auth = require('../middleware/authMiddleware');
 const authorizeRole = require('../middleware/roleMiddleware');
@@ -32,6 +34,9 @@ router.put('/profile/password', auth, updatePassword);
 router.put('/profile/picture', auth, upload.single('picture'), updateProfilePicture);
 
 router.put('/:id', auth, authorizeRole("admin"), userValidation, updateUser);
-router.delete('/:id', auth, authorizeRole("admin"), deleteUser)
+
+router.delete('/soft/:id', auth, authorizeRole('admin'), softDeleteUser);
+router.delete('/hard/:id', auth, authorizeRole("admin"), hardDeleteUser)
+router.patch('/restore/:id', auth, authorizeRole('admin'), restoreUser);
 
 module.exports = router;
