@@ -6,15 +6,15 @@ const express = require('express');
 const rateLimit = require('express-rate-limit')
 const app = express();
 
-
 const connectDB = require('./config/db');
 const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
+const itemRoutes = require('./routes/itemRoutes');
 const logger = require('./middleware/logger');
 const errorHandler = require('./middleware/errorHandler');
 
 const globalLimiter = rateLimit({
-    windowsMs: 10 * 60 * 1000,
+    windowMs: 10 * 60 * 1000,
     max: 100,
     message: "Too many requests from this IP"
 })
@@ -39,6 +39,8 @@ app.use('/users', userRoutes);
 app.use('/auth', authRoutes);
 
 app.use('/uploads', express.static('uploads'));
+
+app.use('/items', itemRoutes);
 
 app.use(errorHandler);
 
