@@ -1,5 +1,4 @@
 require('dotenv').config();
-require('./utils/accountUnlocker');
 const PORT = process.env.PORT || 5000;
 
 const express = require('express');
@@ -7,6 +6,8 @@ const rateLimit = require('express-rate-limit')
 const app = express();
 
 const connectDB = require('./config/db');
+const startAccountLocker = require('./utils/accountUnlocker');
+
 const userRoutes = require('./routes/userRoutes');
 const authRoutes = require('./routes/authRoutes');
 const itemRoutes = require('./routes/itemRoutes');
@@ -19,29 +20,34 @@ const globalLimiter = rateLimit({
     message: "Too many requests from this IP"
 })
 
-connectDB();
+const startServer = async() => {
+    await connectDB();
+    startAccountLocker();
 
-app.use(express.json());
-app.use(logger);
+    app.use(express.json());
+    app.use(logger);
+    
+    app.use(globalLimiter);
+    
+    app.get('/', (req, res) => {
+        res.json({message: 'API berjalan!'})
+    });
+    
+    app.get('/error', (req, res, next) => {
+        next(new Error('Test error handler'));
+    })
+    
+    app.use('/users', userRoutes);
+    
+    app.use('/auth', authRoutes);
+    
+    app.use('/uploads', express.static('uploads'));
+    
+    app.use('/items', itemRoutes);
+    
+    app.use(errorHandler);
+    
+    app.listen(PORT, () => console.log(`Server berjalan di port ${PORT}`));
+}
 
-app.use(globalLimiter);
-
-app.get('/', (req, res) => {
-    res.json({message: 'API berjalan!'})
-});
-
-app.get('/error', (req, res, next) => {
-    next(new Error('Test error handler'));
-})
-
-app.use('/users', userRoutes);
-
-app.use('/auth', authRoutes);
-
-app.use('/uploads', express.static('uploads'));
-
-app.use('/items', itemRoutes);
-
-app.use(errorHandler);
-
-app.listen(PORT, () => console.log(`Server berjalan di port ${PORT}`));
+startServer();
